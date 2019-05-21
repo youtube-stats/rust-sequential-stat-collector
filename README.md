@@ -1,2 +1,2 @@
-# rust-random-stat-collector
-Randomly iterate through channels and insert stats
+# rust-sequential-stat-collector
+Iterate through channels and insert stats
