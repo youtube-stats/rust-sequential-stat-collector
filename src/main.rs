@@ -3,15 +3,12 @@ extern crate reqwest;
 extern crate serde_json;
 extern crate serde;
 
+use std::collections::HashMap;
+
 const POSTGRESQL_URL: &'static str = "postgresql://admin@localhost:5432/youtube";
 const QUERY: &'static str = "SELECT * FROM youtube.stats.channels ORDER BY RANDOM() LIMIT 50";
 const INSERT: &'static str =
     "INSERT INTO youtube.stats.metrics (channel_id, subs, views, videos) VALUES ($1, $2, $3, $4)";
-
-struct Channel {
-    id: i32,
-    serial: String
-}
 
 fn main() {
     let params: &'static str = POSTGRESQL_URL;
@@ -24,13 +21,23 @@ fn main() {
 
     loop {
         let rows: postgres::rows::Rows = conn.query(QUERY, &[]).unwrap();
-        for row in &rows {
-            let channel: Channel = Channel {
-                id: row.get(0),
-                serial: row.get(1)
-            };
 
-            println!("{} {}", channel.id, channel.serial);
+        let mut hash: std::collections::HashMap<String, i32> = HashMap::new();
+        for row in &rows {
+            let k: String = row.get(1);
+            let v: i32 = row.get(0);
+
+            hash.insert(k, v);
         }
+
+        let mut vec_id: Vec<String> = Vec::new();
+        for value in hash.keys().clone() {
+            vec_id.push(value.to_string());
+        }
+        let ids: String = vec_id.join(",");
+
+        let url: String = format!("https://www.googleapis.com/youtube/v3/channels?part=statistics&key={}&id={}", key, ids);
+        let body: String = reqwest::get(url.as_str()).unwrap().text().unwrap();
+        println!("{}", body);
     }
 }
