@@ -1,9 +1,17 @@
 extern crate postgres;
-extern crate csv;
+extern crate reqwest;
+extern crate serde_json;
+extern crate serde;
 
 const POSTGRESQL_URL: &'static str = "postgresql://admin@localhost:5432/youtube";
+const QUERY: &'static str = "SELECT * FROM youtube.stats.channels ORDER BY RANDOM() LIMIT 50";
 const INSERT: &'static str =
-    "INSERT INTO youtube.stats.channels (serial) VALUES ($1) ON CONFLICT DO NOTHING";
+    "INSERT INTO youtube.stats.metrics (channel_id, subs, views, videos) VALUES ($1, $2, $3, $4)";
+
+struct Channel {
+    id: i32,
+    serial: String
+}
 
 fn main() {
     let params: &'static str = POSTGRESQL_URL;
@@ -12,22 +20,17 @@ fn main() {
     let conn: postgres::Connection =
         postgres::Connection::connect(params, tls).unwrap();
 
-    let rdr: std::io::Stdin = std::io::stdin();
+    let key: String = std::env::var("YOUTUBE_KEY").unwrap();
 
-    let mut rdr: csv::Reader<std::io::Stdin> =
-        csv::Reader::from_reader(rdr);
+    loop {
+        let rows: postgres::rows::Rows = conn.query(QUERY, &[]).unwrap();
+        for row in &rows {
+            let channel: Channel = Channel {
+                id: row.get(0),
+                serial: row.get(1)
+            };
 
-    for result in rdr.records() {
-        let record: csv::StringRecord = result.unwrap();
-        let channel_serial: &str = record.get(0).unwrap();
-
-        let result: u64 = conn.execute(INSERT, &[&channel_serial]).unwrap();
-        if result == 1{
-            println!("Inserting {}", channel_serial);
-        } else  if result == 0{
-            println!("Ignoring {}", channel_serial);
-        } else {
-            panic!("Something bad happened - could not insert {}", channel_serial);
+            println!("{} {}", channel.id, channel.serial);
         }
     }
 }
