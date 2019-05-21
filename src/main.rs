@@ -6,7 +6,6 @@ extern crate serde;
 use std::collections::HashMap;
 
 const POSTGRESQL_URL: &'static str = "postgresql://admin@localhost:5432/youtube";
-const QUERY: &'static str = "SELECT * FROM youtube.stats.channels ORDER BY id ASC LIMIT 50 OFFSET $1";
 
 #[allow(non_snake_case)]
 #[derive(serde::Deserialize)]
@@ -76,7 +75,10 @@ fn main() {
     let mut offset: u32 = 0;
 
     loop {
-        let rows: postgres::rows::Rows = conn.query(QUERY, &[&offset]).unwrap();
+        let query: String =
+            format!("SELECT * FROM youtube.stats.channels ORDER BY id ASC LIMIT 50 OFFSET {}",
+                    offset);
+        let rows: postgres::rows::Rows = conn.query(query.as_str(), &[]).unwrap();
 
         let mut hash: std::collections::HashMap<String, String> = HashMap::new();
         for row in &rows {
