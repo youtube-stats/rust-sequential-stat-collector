@@ -10,6 +10,42 @@ const QUERY: &'static str = "SELECT * FROM youtube.stats.channels ORDER BY RANDO
 const INSERT: &'static str =
     "INSERT INTO youtube.stats.metrics (channel_id, subs, views, videos) VALUES ($1, $2, $3, $4)";
 
+#[allow(non_snake_case)]
+#[derive(serde::Deserialize)]
+struct PageInfoType {
+    totalResults: u8,
+    resultsPerPage: u8
+}
+
+#[allow(non_snake_case)]
+#[derive(serde::Deserialize)]
+struct StatisticsType {
+    viewCount: String,
+    commentCount: String,
+    subscriberCount: String,
+    hiddenSubscriberCount: bool,
+    videoCount: String
+}
+
+#[allow(non_snake_case)]
+#[derive(serde::Deserialize)]
+struct  ItemType {
+    kind: String,
+    etag: String,
+    id: String,
+    statistics: StatisticsType
+}
+
+#[allow(non_snake_case)]
+#[derive(serde::Deserialize)]
+struct YoutubeResponseType {
+    kind: String,
+    etag: String,
+    nextPageToken: String,
+    pageInfo: PageInfoType,
+    items: Vec<ItemType>
+}
+
 fn main() {
     let params: &'static str = POSTGRESQL_URL;
     let tls: postgres::TlsMode = postgres::TlsMode::None;
@@ -38,6 +74,7 @@ fn main() {
 
         let url: String = format!("https://www.googleapis.com/youtube/v3/channels?part=statistics&key={}&id={}", key, ids);
         let body: String = reqwest::get(url.as_str()).unwrap().text().unwrap();
-        println!("{}", body);
+        let response: YoutubeResponseType = serde_json::from_str(body.as_str()).unwrap();
+        println!("{} {}", response.items.len(), response.kind);
     }
 }
