@@ -13,7 +13,10 @@ const INSERT: &'static str =
 #[allow(non_snake_case)]
 #[derive(serde::Deserialize)]
 struct PageInfoType {
+    #[allow(dead_code)]
     totalResults: u8,
+
+    #[allow(dead_code)]
     resultsPerPage: u8
 }
 
@@ -21,17 +24,27 @@ struct PageInfoType {
 #[derive(serde::Deserialize)]
 struct StatisticsType {
     viewCount: String,
+
+    #[allow(dead_code)]
     commentCount: String,
+
     subscriberCount: String,
+
+    #[allow(dead_code)]
     hiddenSubscriberCount: bool,
+
     videoCount: String
 }
 
 #[allow(non_snake_case)]
 #[derive(serde::Deserialize)]
 struct  ItemType {
+    #[allow(dead_code)]
     kind: String,
+
+    #[allow(dead_code)]
     etag: String,
+
     id: String,
     statistics: StatisticsType
 }
@@ -39,10 +52,18 @@ struct  ItemType {
 #[allow(non_snake_case)]
 #[derive(serde::Deserialize)]
 struct YoutubeResponseType {
+    #[allow(dead_code)]
     kind: String,
+
+    #[allow(dead_code)]
     etag: String,
+
+    #[allow(dead_code)]
     nextPageToken: String,
+
+    #[allow(dead_code)]
     pageInfo: PageInfoType,
+
     items: Vec<ItemType>
 }
 
@@ -75,6 +96,20 @@ fn main() {
         let url: String = format!("https://www.googleapis.com/youtube/v3/channels?part=statistics&key={}&id={}", key, ids);
         let body: String = reqwest::get(url.as_str()).unwrap().text().unwrap();
         let response: YoutubeResponseType = serde_json::from_str(body.as_str()).unwrap();
-        println!("{} {}", response.items.len(), response.kind);
+
+        for item in response.items {
+            let channel_id: &i32 = hash.get(item.id.as_str()).unwrap();
+            let subs: String = item.statistics.subscriberCount;
+            let views: String = item.statistics.viewCount;
+            let videos: String = item.statistics.videoCount;
+
+            println!("{} {} {} {} {}",
+                     item.id,
+                     channel_id,
+                     subs,
+                     views,
+                     videos);
+            conn.execute(INSERT, &[&channel_id, &subs, &views, &videos]).unwrap();
+        }
     }
 }
