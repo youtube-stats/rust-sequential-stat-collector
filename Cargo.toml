@@ -1,13 +1,12 @@
 [package]
-name = "import-channels"
+name = "rust-random-stat-collector"
 version = "0.1.0"
 authors = ["Salvador Guzman <guzmansalv@gmail.com>"]
 edition = "2018"
 
 [[bin]]
-name = "import"
+name = "stats"
 path = "src/main.rs"
 
 [dependencies]
 postgres = "0.15.2"
-csv = "1.0.7"
