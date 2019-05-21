@@ -1,0 +1,12 @@
+[package]
+name = "import-channels"
+version = "0.1.0"
+authors = ["Salvador Guzman <guzmansalv@gmail.com>"]
+edition = "2018"
+
+[[bin]]
+name = "import"
+path = "src/main.rs"
+
+[dependencies]
+postgres = "0.15.2"
