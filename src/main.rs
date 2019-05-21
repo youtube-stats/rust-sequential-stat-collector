@@ -94,11 +94,38 @@ fn main() {
         let ids: String = vec_id.join(",");
         let url: String = format!("https://www.googleapis.com/youtube/v3/channels?part=statistics&key={}&id={}", key, ids);
 
-        let body: String = reqwest::get(url.as_str()).unwrap().text().unwrap();
-        let response: YoutubeResponseType = serde_json::from_str(body.as_str()).unwrap();
+        let mut resp: reqwest::Response = match reqwest::get(url.as_str()) {
+            Ok(resp) => resp,
+            Err(e) => {
+                panic!("{}", e.to_string());
+                continue
+            }
+        };
+
+        let body: String = match resp.text() {
+            Ok(text) => text,
+            Err(e) => {
+                panic!("{}", e.to_string());
+                continue
+            }
+        };
+
+        let response: YoutubeResponseType = match serde_json::from_str(body.as_str()) {
+            Ok(text) => text,
+            Err(e) => {
+                panic!("{}", e.to_string());
+                continue
+            }
+        };
 
         for item in response.items {
-            let channel_id: &String = hash.get(item.id.as_str()).unwrap();
+            let channel_id: &String = match hash.get(item.id.as_str()) {
+                Ok(text) => text,
+                Err(e) => {
+                    panic!("{}", e.to_string());
+                    continue
+                }
+            };
 
             println!("{} {} {} {} {}",
                      item.id,
@@ -114,7 +141,17 @@ fn main() {
                 item.statistics.viewCount,
                 item.statistics.videoCount);
 
-            conn.execute(query.as_str(), &[]).unwrap();
+            let n: u64 = match conn.execute(query.as_str(), &[]) {
+                Ok(size) => size,
+                Err(e) => {
+                    panic!("{}", e.to_string());
+                    continue
+                }
+            };
+
+            if n != 1 {
+                panic!("Row did not insert correctly");
+            }
         }
     }
 }
