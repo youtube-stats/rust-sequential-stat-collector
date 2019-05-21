@@ -1,2 +1,2 @@
-# import-channels
-Import channels from csv file
+# rust-random-stat-collector
+Randomly iterate through channels and insert stats
