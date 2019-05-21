@@ -7,8 +7,6 @@ use std::collections::HashMap;
 
 const POSTGRESQL_URL: &'static str = "postgresql://admin@localhost:5432/youtube";
 const QUERY: &'static str = "SELECT * FROM youtube.stats.channels ORDER BY RANDOM() LIMIT 50";
-const INSERT: &'static str =
-    "INSERT INTO youtube.stats.metrics (channel_id, subs, views, videos) VALUES ($1, $2, $3, $4)";
 
 #[allow(non_snake_case)]
 #[derive(serde::Deserialize)]
@@ -79,10 +77,11 @@ fn main() {
     loop {
         let rows: postgres::rows::Rows = conn.query(QUERY, &[]).unwrap();
 
-        let mut hash: std::collections::HashMap<String, i32> = HashMap::new();
+        let mut hash: std::collections::HashMap<String, String> = HashMap::new();
         for row in &rows {
             let k: String = row.get(1);
             let v: i32 = row.get(0);
+            let v: String = v.to_string();
 
             hash.insert(k, v);
         }
@@ -91,25 +90,31 @@ fn main() {
         for value in hash.keys().clone() {
             vec_id.push(value.to_string());
         }
-        let ids: String = vec_id.join(",");
 
+        let ids: String = vec_id.join(",");
         let url: String = format!("https://www.googleapis.com/youtube/v3/channels?part=statistics&key={}&id={}", key, ids);
+
         let body: String = reqwest::get(url.as_str()).unwrap().text().unwrap();
         let response: YoutubeResponseType = serde_json::from_str(body.as_str()).unwrap();
 
         for item in response.items {
-            let channel_id: &i32 = hash.get(item.id.as_str()).unwrap();
-            let subs: String = item.statistics.subscriberCount;
-            let views: String = item.statistics.viewCount;
-            let videos: String = item.statistics.videoCount;
+            let channel_id: &String = hash.get(item.id.as_str()).unwrap();
 
             println!("{} {} {} {} {}",
                      item.id,
                      channel_id,
-                     subs,
-                     views,
-                     videos);
-            conn.execute(INSERT, &[&channel_id, &subs, &views, &videos]).unwrap();
+                     item.statistics.subscriberCount,
+                     item.statistics.viewCount,
+                     item.statistics.videoCount);
+
+            let query: String =
+                format!("INSERT INTO youtube.stats.metrics (channel_id, subs, views, videos) VALUES ({}, {}, {}, {})",
+                channel_id,
+                item.statistics.subscriberCount,
+                item.statistics.viewCount,
+                item.statistics.videoCount);
+
+            conn.execute(query.as_str(), &[]).unwrap();
         }
     }
 }
