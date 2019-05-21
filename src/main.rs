@@ -97,7 +97,7 @@ fn main() {
         let mut resp: reqwest::Response = match reqwest::get(url.as_str()) {
             Ok(resp) => resp,
             Err(e) => {
-                panic!("{}", e.to_string());
+                eprintln!("{}", e.to_string());
                 continue
             }
         };
@@ -105,7 +105,7 @@ fn main() {
         let body: String = match resp.text() {
             Ok(text) => text,
             Err(e) => {
-                panic!("{}", e.to_string());
+                eprintln!("{}", e.to_string());
                 continue
             }
         };
@@ -113,16 +113,16 @@ fn main() {
         let response: YoutubeResponseType = match serde_json::from_str(body.as_str()) {
             Ok(text) => text,
             Err(e) => {
-                panic!("{}", e.to_string());
+                eprintln!("{}", e.to_string());
                 continue
             }
         };
 
         for item in response.items {
             let channel_id: &String = match hash.get(item.id.as_str()) {
-                Ok(text) => text,
-                Err(e) => {
-                    panic!("{}", e.to_string());
+                Some(text) => text,
+                None => {
+                    eprintln!("Found no value for key {}", item.id);
                     continue
                 }
             };
@@ -144,13 +144,13 @@ fn main() {
             let n: u64 = match conn.execute(query.as_str(), &[]) {
                 Ok(size) => size,
                 Err(e) => {
-                    panic!("{}", e.to_string());
+                    eprintln!("{}", e.to_string());
                     continue
                 }
             };
 
             if n != 1 {
-                panic!("Row did not insert correctly");
+                eprintln!("Row did not insert correctly");
             }
         }
     }
