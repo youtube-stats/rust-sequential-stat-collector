@@ -1,4 +1,5 @@
 extern crate postgres;
+extern crate rand;
 extern crate reqwest;
 extern crate serde_json;
 extern crate serde;
@@ -64,6 +65,10 @@ struct YoutubeResponseType {
     items: Vec<ItemType>
 }
 
+fn get_random_key(raw_keys: &Vec<&str>, rng: &mut rand::prelude::ThreadRng) -> String {
+    raw_keys.choose(rng).unwrap().to_string()
+}
+
 fn main() {
     let params: &'static str = POSTGRESQL_URL;
     let tls: postgres::TlsMode = postgres::TlsMode::None;
@@ -71,7 +76,9 @@ fn main() {
     let conn: postgres::Connection =
         postgres::Connection::connect(params, tls).unwrap();
 
-    let key: String = std::env::var("YOUTUBE_KEY").unwrap();
+    let keys: String = std::env::var("YOUTUBE_KEYS").unwrap();
+    let keys: Vec<&str> = keys.split("|").collect::<Vec<&str>>();
+    let mut rng: rand::prelude::ThreadRng = rand::prelude::thread_rng();
     let mut offset: u32 = 0;
 
     loop {
@@ -99,6 +106,9 @@ fn main() {
         for value in hash.keys().clone() {
             vec_id.push(value.to_string());
         }
+
+        let key: String = get_random_key(&keys, &mut rng).to_string();
+        println!("Using key {}", key);
 
         let ids: String = vec_id.join(",");
         let url: String = format!("https://www.googleapis.com/youtube/v3/channels?part=statistics&key={}&id={}", key, ids);
