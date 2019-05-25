@@ -1,11 +1,9 @@
 extern crate postgres;
-extern crate rand;
 extern crate reqwest;
 extern crate serde_json;
 extern crate serde;
 
 use std::collections::HashMap;
-use rand::seq::SliceRandom;
 
 const POSTGRESQL_URL: &'static str = "postgresql://admin@localhost:5432/youtube";
 
@@ -66,20 +64,15 @@ struct YoutubeResponseType {
     items: Vec<ItemType>
 }
 
-fn get_random_key(raw_keys: &Vec<&str>, rng: &mut rand::prelude::ThreadRng) -> String {
-    raw_keys.choose(rng).unwrap().to_string()
-}
-
 fn main() {
+    let addr: String = std::env::args().last().unwrap();
+
     let params: &'static str = POSTGRESQL_URL;
     let tls: postgres::TlsMode = postgres::TlsMode::None;
 
     let conn: postgres::Connection =
         postgres::Connection::connect(params, tls).unwrap();
 
-    let keys: String = std::env::var("YOUTUBE_KEYS").unwrap();
-    let keys: Vec<&str> = keys.split("|").collect::<Vec<&str>>();
-    let mut rng: rand::prelude::ThreadRng = rand::prelude::thread_rng();
     let mut offset: u32 = 0;
 
     loop {
@@ -108,8 +101,14 @@ fn main() {
             vec_id.push(value.to_string());
         }
 
-        let key: String = get_random_key(&keys, &mut rng).to_string();
+        let key: String = reqwest::get(addr.as_str()).unwrap().text().unwrap();
         println!("Using key {}", key);
+        if key.is_empty() {
+            println!("Detected empty key - waiting 1 minutes");
+            let dur: std::time::Duration = std::time::Duration::from_secs(60);
+            std::thread::sleep(dur);
+            continue;
+        }
 
         let ids: String = vec_id.join(",");
         let url: String = format!("https://www.googleapis.com/youtube/v3/channels?part=statistics&key={}&id={}", key, ids);
