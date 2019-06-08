@@ -9,8 +9,9 @@ extern crate prost_derive;
 
 use postgres::Connection;
 use postgres::TlsMode;
-use std::collections::HashMap;
 use postgres::rows::Rows;
+use prost::Message;
+use std::collections::HashMap;
 use std::time::SystemTime;
 
 const POSTGRESQL_URL: &'static str = "postgresql://admin@localhost:5432/youtube";
@@ -28,6 +29,7 @@ struct PageInfoType {
 #[allow(non_snake_case)]
 #[derive(serde::Deserialize)]
 struct StatisticsType {
+    #[allow(dead_code)]
     viewCount: String,
 
     #[allow(dead_code)]
@@ -38,6 +40,7 @@ struct StatisticsType {
     #[allow(dead_code)]
     hiddenSubscriberCount: bool,
 
+    #[allow(dead_code)]
     videoCount: String
 }
 
@@ -139,6 +142,7 @@ fn main() {
 
     loop {
         let len: usize = chunky.len();
+        let client = reqwest::Client::new();
 
         for i in 0..len {
             let vec_id = chunky[i];
@@ -198,12 +202,6 @@ fn main() {
                     time.push(now.clone());
                     ids.push(id.clone());
                     subs.push(value);
-
-                    println!("{} {} {}",
-                             now,
-                             id,
-                             item.statistics.subscriberCount
-                    );
                 }
 
                 let subs: Subs = Subs {
@@ -211,6 +209,25 @@ fn main() {
                     ids,
                     subs
                 };
+
+                println!("{:?}", subs);
+
+                let out: Vec<u8> = {
+                    let mut out: Vec<u8> = Vec::new();
+                    {
+                        subs
+                            .encode(&mut out)
+                            .expect("Cannot write message!")
+                    }
+
+                    out
+                };
+
+                let url: &'static str = "http://localhost:8081/put";
+                let _ = client.post(url)
+                    .body(out)
+                    .send()
+                    .expect("Could not send message");
             }
         }
     }
