@@ -3,16 +3,17 @@ extern crate postgres;
 extern crate reqwest;
 extern crate serde_json;
 extern crate serde;
-extern crate prost;
-#[macro_use]
-extern crate prost_derive;
+extern crate quick_protobuf;
 
 use postgres::Connection;
 use postgres::TlsMode;
 use postgres::rows::Rows;
-use prost::Message;
 use std::collections::HashMap;
 use std::time::SystemTime;
+
+pub mod message;
+use message::Subs;
+use bytes::Writer;
 
 const POSTGRESQL_URL: &'static str = "postgresql://admin@localhost:5432/youtube";
 
@@ -74,20 +75,6 @@ struct YoutubeResponseType {
 
     items: Vec<ItemType>
 }
-
-pub mod types {
-    #[derive(Clone, PartialEq, Message)]
-    pub struct Subs {
-        #[prost(int32, repeated, tag = "1")]
-        pub time: Vec<i32>,
-        #[prost(int32, repeated, tag = "2")]
-        pub ids: Vec<i32>,
-        #[prost(int32, repeated, tag = "3")]
-        pub subs: Vec<i32>
-    }
-}
-
-use types::Subs;
 
 pub mod statics {
     pub const POSTGRESQL_URL: &'static str = "postgresql://admin@localhost:5432/youtube";
@@ -204,6 +191,10 @@ fn main() {
                     subs.push(value);
                 }
 
+                let time: Option<Vec<i32>> = Some(time);
+                let ids: Option<Vec<i32>> = Some(ids);
+                let subs: Option<Vec<i32>> = Some(subs);
+
                 let subs: Subs = Subs {
                     time,
                     ids,
@@ -215,12 +206,11 @@ fn main() {
                 let out: Vec<u8> = {
                     let mut out: Vec<u8> = Vec::new();
                     {
-                        subs
-                            .encode(&mut out)
-                            .expect("Cannot write message!")
+                        let mut writer = Writer::new(&mut out);
+                        writer
+                            .write_message(&subs)
+                            .expect("Cannot write message!");
                     }
-
-                    out
                 };
 
                 println!("{} {:?}", out.len(), out);
