@@ -11,6 +11,7 @@ use postgres::Connection;
 use postgres::TlsMode;
 use std::collections::HashMap;
 use postgres::rows::Rows;
+use std::time::SystemTime;
 
 const POSTGRESQL_URL: &'static str = "postgresql://admin@localhost:5432/youtube";
 
@@ -77,11 +78,13 @@ pub mod types {
         #[prost(int32, repeated, tag = "1")]
         pub time: Vec<i32>,
         #[prost(int32, repeated, tag = "2")]
-        pub id: Vec<i32>,
+        pub ids: Vec<i32>,
         #[prost(int32, repeated, tag = "3")]
         pub subs: Vec<i32>
     }
 }
+
+use types::Subs;
 
 pub mod statics {
     pub const POSTGRESQL_URL: &'static str = "postgresql://admin@localhost:5432/youtube";
@@ -174,17 +177,40 @@ fn main() {
             let response: YoutubeResponseType = serde_json::from_str(body.as_str())
                 .expect("Could not convert JSON obj");
 
-            for item in response.items {
-                let channel_id: &i32 = hash.get(item.id.as_str())
-                    .expect("Could not find key");
+            {
+                let now: u64 = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .expect("Could not get timestamp")
+                    .as_secs();
+                let now: i32 = now as i32;
 
-                println!("{} {} {} {} {}",
-                         item.id,
-                         channel_id,
-                         item.statistics.subscriberCount,
-                         item.statistics.viewCount,
-                         item.statistics.videoCount);
+                let mut time: Vec<i32> = Vec::new();
+                let mut ids: Vec<i32> = Vec::new();
+                let mut subs: Vec<i32> = Vec::new();
 
+                for item in response.items {
+                    let k: &str = item.id.as_str();
+                    let id: &i32 = hash.get(k)
+                        .expect("Could not find key");
+                    let value: i32 = item.statistics.subscriberCount.parse::<i32>()
+                        .expect("Could not convert subs to i32");
+
+                    time.push(now.clone());
+                    ids.push(id.clone());
+                    subs.push(value);
+
+                    println!("{} {} {}",
+                             now,
+                             id,
+                             item.statistics.subscriberCount
+                    );
+                }
+
+                let subs: Subs = Subs {
+                    time,
+                    ids,
+                    subs
+                };
             }
         }
     }
