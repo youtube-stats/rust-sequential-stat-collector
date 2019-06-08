@@ -223,6 +223,8 @@ fn main() {
                     out
                 };
 
+                println!("{} {:?}", out.len(), out);
+
                 let url: &'static str = "http://localhost:8081/post";
                 let _ = client.post(url)
                     .body(out)
