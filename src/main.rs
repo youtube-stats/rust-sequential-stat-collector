@@ -1,4 +1,3 @@
-extern crate bytes;
 extern crate postgres;
 extern crate reqwest;
 extern crate serde_json;
@@ -8,12 +7,12 @@ extern crate quick_protobuf;
 use postgres::Connection;
 use postgres::TlsMode;
 use postgres::rows::Rows;
+use quick_protobuf::Writer;
 use std::collections::HashMap;
 use std::time::SystemTime;
 
 pub mod message;
 use message::Subs;
-use bytes::Writer;
 
 const POSTGRESQL_URL: &'static str = "postgresql://admin@localhost:5432/youtube";
 
@@ -191,10 +190,6 @@ fn main() {
                     subs.push(value);
                 }
 
-                let time: Option<Vec<i32>> = Some(time);
-                let ids: Option<Vec<i32>> = Some(ids);
-                let subs: Option<Vec<i32>> = Some(subs);
-
                 let subs: Subs = Subs {
                     time,
                     ids,
@@ -211,9 +206,9 @@ fn main() {
                             .write_message(&subs)
                             .expect("Cannot write message!");
                     }
-                };
 
-                println!("{} {:?}", out.len(), out);
+                    out
+                };
 
                 let url: &'static str = "http://localhost:8081/post";
                 let _ = client.post(url)

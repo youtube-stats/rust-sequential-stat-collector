@@ -9,7 +9,6 @@ name = "stats"
 path = "src/main.rs"
 
 [dependencies]
-bytes = "0.4.12"
 openssl-sys = "*"
 postgres = "0.15.2"
 quick-protobuf = "0.6.3"
