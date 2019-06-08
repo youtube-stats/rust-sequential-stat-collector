@@ -11,7 +11,6 @@ use postgres::Connection;
 use postgres::TlsMode;
 use std::collections::HashMap;
 use postgres::rows::Rows;
-use std::slice::Chunks;
 
 const POSTGRESQL_URL: &'static str = "postgresql://admin@localhost:5432/youtube";
 
@@ -96,7 +95,7 @@ pub fn get_client() -> postgres::Connection {
 }
 
 fn main() {
-    let url: &'static str = "http://localhost:8080";
+    let url: &'static str = "http://localhost:8080/get";
     let conn: Connection = {
         let params: &'static str = statics::POSTGRESQL_URL;
         let tls: TlsMode = TlsMode::None;
@@ -148,12 +147,6 @@ fn main() {
                 .expect("Could not get HTTP response").text()
                 .expect("Could not retrieve HTTP body");
             println!("Using key {}", key);
-            if key.is_empty() {
-                println!("Detected empty key - waiting 1 minutes");
-                let dur: std::time::Duration = std::time::Duration::from_secs(60);
-                std::thread::sleep(dur);
-                return;
-            }
 
             let capacity: usize = vec_id.len() * 24 + (vec_id.len() - 1);
             let ids: String = {
