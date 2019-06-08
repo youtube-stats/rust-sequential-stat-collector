@@ -223,7 +223,7 @@ fn main() {
                     out
                 };
 
-                let url: &'static str = "http://localhost:8081/put";
+                let url: &'static str = "http://localhost:8081/post";
                 let _ = client.post(url)
                     .body(out)
                     .send()
