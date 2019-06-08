@@ -10,6 +10,8 @@ extern crate prost_derive;
 use postgres::Connection;
 use postgres::TlsMode;
 use std::collections::HashMap;
+use postgres::rows::Rows;
+use std::slice::Chunks;
 
 const POSTGRESQL_URL: &'static str = "postgresql://admin@localhost:5432/youtube";
 
@@ -94,8 +96,7 @@ pub fn get_client() -> postgres::Connection {
 }
 
 fn main() {
-    let addr: String = std::env::args().last()
-        .expect("Could not retrieve args");
+    let url: &'static str = "http://localhost:8080";
     let conn: Connection = {
         let params: &'static str = statics::POSTGRESQL_URL;
         let tls: TlsMode = TlsMode::None;
@@ -103,18 +104,21 @@ fn main() {
         Connection::connect(params, tls).expect("Could not connect to database")
     };
 
-    let query: &'static str = "SELECT * FROM youtube.stats.channels ORDER BY id ASC";
-    let rows: postgres::rows::Rows = conn.query(query, &[])
-        .expect("Could not query");
+    let hash: HashMap<String, i32> = {
+        let query: &'static str = "SELECT * FROM youtube.stats.channels ORDER BY id ASC";
+        let rows: Rows = conn.query(query, &[])
+            .expect("Could not query");
 
-    let mut hash: std::collections::HashMap<String, i32> = HashMap::new();
-    for row in &rows {
-        let v: i32 = row.get(0);
-        let k: String = row.get(1);
+        let mut hash: HashMap<String, i32> = HashMap::new();
+        for row in &rows {
+            let v: i32 = row.get(0);
+            let k: String = row.get(1);
 
-        hash.insert(k, v);
-    }
+            hash.insert(k, v);
+        }
 
+        hash
+    };
     let keys: Vec<&String> = {
         let mut keys: Vec<&String> = Vec::new();
 
@@ -124,12 +128,23 @@ fn main() {
 
         keys
     };
-    let chunk_size: usize = 50;
-    let chunky = keys.chunks(chunk_size);
+    let chunky: Vec<_> = {
+        let chunk_size: usize = 50;
+
+        keys.chunks(chunk_size)
+            .collect()
+    };
 
     loop {
-        for vec_id in chunky {
-            let key: String = reqwest::get(addr.as_str())
+        let len: usize = chunky.len();
+
+        for i in 0..len {
+            let vec_id = chunky[i];
+            if vec_id.len() == 0 {
+                return;
+            }
+
+            let key: String = reqwest::get(url)
                 .expect("Could not get HTTP response").text()
                 .expect("Could not retrieve HTTP body");
             println!("Using key {}", key);
@@ -137,45 +152,38 @@ fn main() {
                 println!("Detected empty key - waiting 1 minutes");
                 let dur: std::time::Duration = std::time::Duration::from_secs(60);
                 std::thread::sleep(dur);
-                continue;
+                return;
             }
 
-            let vec: Vec<&String>  = vec_id.to_vec();
-            let ids: String = vec.join(",");
+            let capacity: usize = vec_id.len() * 24 + (vec_id.len() - 1);
+            let ids: String = {
+                let mut buffer: String = String::with_capacity(capacity);
+                {
+                    let string: &String = vec_id.first().expect("Vector is empty");
+                    buffer.push_str(string)
+                }
+
+                for i in vec_id.iter().skip(1) {
+                    let string: String = format!(",{}", i);
+                    let string: &str = string.as_str();
+
+                    buffer.push_str(string);
+                }
+
+                buffer
+            };
             let url: String = format!("https://www.googleapis.com/youtube/v3/channels?part=statistics&key={}&id={}", key, ids);
 
-            let mut resp: reqwest::Response = match reqwest::get(url.as_str()) {
-                Ok(resp) => resp,
-                Err(e) => {
-                    eprintln!("{}", e.to_string());
-                    continue
-                }
-            };
+            let body: String = reqwest::get(url.as_str())
+                .expect("Could not get HTTP response").text()
+                .expect("Could not retrieve HTTP body");
 
-            let body: String = match resp.text() {
-                Ok(text) => text,
-                Err(e) => {
-                    eprintln!("{}", e.to_string());
-                    continue
-                }
-            };
-
-            let response: YoutubeResponseType = match serde_json::from_str(body.as_str()) {
-                Ok(text) => text,
-                Err(e) => {
-                    eprintln!("{}", e.to_string());
-                    continue
-                }
-            };
+            let response: YoutubeResponseType = serde_json::from_str(body.as_str())
+                .expect("Could not convert JSON obj");
 
             for item in response.items {
-                let channel_id: &String = match hash.get(item.id.as_str()) {
-                    Some(text) => text,
-                    None => {
-                        eprintln!("Found no value for key {}", item.id);
-                        continue
-                    }
-                };
+                let channel_id: &i32 = hash.get(item.id.as_str())
+                    .expect("Could not find key");
 
                 println!("{} {} {} {} {}",
                          item.id,
@@ -184,24 +192,6 @@ fn main() {
                          item.statistics.viewCount,
                          item.statistics.videoCount);
 
-                let query: String =
-                    format!("INSERT INTO youtube.stats.metrics (channel_id, subs, views, videos) VALUES ({}, {}, {}, {})",
-                            channel_id,
-                            item.statistics.subscriberCount,
-                            item.statistics.viewCount,
-                            item.statistics.videoCount);
-
-                let n: u64 = match conn.execute(query.as_str(), &[]) {
-                    Ok(size) => size,
-                    Err(e) => {
-                        eprintln!("{}", e.to_string());
-                        continue
-                    }
-                };
-
-                if n != 1 {
-                    eprintln!("Row did not insert correctly");
-                }
             }
         }
     }
